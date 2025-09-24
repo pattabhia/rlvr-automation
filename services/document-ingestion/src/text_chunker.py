@@ -6,7 +6,7 @@ Uses recursive character splitting for better semantic coherence.
 
 import logging
 from typing import List, Dict
-
+  
 try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
 except ImportError:

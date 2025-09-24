@@ -7,7 +7,7 @@ Handles vector storage, collection management, and similarity search.
 import logging
 import uuid
 from typing import List, Dict, Optional
-
+  
 try:
     from qdrant_client import QdrantClient
     from qdrant_client.http.models import Distance, VectorParams, PointStruct
