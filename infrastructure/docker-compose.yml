@@ -1,0 +1,287 @@
+version: "3.8"
+
+services:
+  # ============================================================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================================================
+
+  # Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-vectordb
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ../qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # LLM Inference
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-service
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # Message Queue (Event Bus)
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq-eventbus
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=rlvr
+      - RABBITMQ_DEFAULT_PASS=rlvr_password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL (Ground Truth Database)
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-groundtruth
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=ground_truth
+      - POSTGRES_USER=rlvr
+      - POSTGRES_PASSWORD=rlvr_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rlvr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # APPLICATION SERVICES
+  # ============================================================================
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - QA_ORCHESTRATOR_URL=http://qa-orchestrator:8001
+      - DOC_INGESTION_SERVICE_URL=http://document-ingestion:8002
+      - TRAINING_DATA_SERVICE_URL=http://training-data:8005
+      - GROUND_TRUTH_SERVICE_URL=http://ground-truth:8007
+    depends_on:
+      - qa-orchestrator
+      - document-ingestion
+      - training-data
+      - ground-truth
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # QA Orchestrator - Application layer orchestrator for RAG workflow
+  qa-orchestrator:
+    build:
+      context: ..
+      dockerfile: services/qa-orchestrator/Dockerfile
+    container_name: qa-orchestrator
+    ports:
+      - "8001:8001"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://ollama:11434
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - RABBITMQ_URL=amqp://rlvr:rlvr_password@rabbitmq:5672/
+      - NUM_CANDIDATES=3
+      - CANDIDATE_TEMPERATURES=0.3,0.7,0.9
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    volumes:
+      - ../data:/app/data
+
+  # Document Ingestion Service
+  document-ingestion:
+    build:
+      context: ..
+      dockerfile: services/document-ingestion/Dockerfile
+    container_name: document-ingestion
+    ports:
+      - "8002:8002"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=documents
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - RABBITMQ_URL=amqp://rlvr:rlvr_password@rabbitmq:5672/
+    depends_on:
+      qdrant:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    volumes:
+      - ../data:/app/data
+
+  # Ground Truth Service
+  ground-truth:
+    build:
+      context: ..
+      dockerfile: services/ground-truth/Dockerfile
+    container_name: ground-truth
+    ports:
+      - "8007:8007"
+    environment:
+      - DATABASE_URL=postgresql://rlvr:rlvr_password@postgres:5432/ground_truth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # Training Data Service
+  training-data:
+    build:
+      context: ..
+      dockerfile: services/training-data/Dockerfile
+    container_name: training-data
+    ports:
+      - "8005:8005"
+    environment:
+      - DATA_DIR=/app/data/training_data
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    volumes:
+      - ../data:/app/data
+
+  # ============================================================================
+  # WORKERS (Async Processing)
+  # ============================================================================
+
+  # Verification Worker (RAGAS)
+  verification-worker:
+    build:
+      context: ..
+      dockerfile: workers/verification-worker/Dockerfile
+    container_name: verification-worker
+    environment:
+      - RABBITMQ_URL=amqp://rlvr:rlvr_password@rabbitmq:5672/
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # Reward Computation Worker
+  reward-computation-worker:
+    build:
+      context: ..
+      dockerfile: workers/reward-computation-worker/Dockerfile
+    container_name: reward-computation-worker
+    environment:
+      - RABBITMQ_URL=amqp://rlvr:rlvr_password@rabbitmq:5672/
+      - GROUND_TRUTH_SERVICE_URL=http://ground-truth:8007
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      ground-truth:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+  # Dataset Generation Worker
+  dataset-generation-worker:
+    build:
+      context: ..
+      dockerfile: workers/dataset-generation-worker/Dockerfile
+    container_name: dataset-generation-worker
+    environment:
+      - RABBITMQ_URL=amqp://rlvr:rlvr_password@rabbitmq:5672/
+      # Event aggregation timeout (increased to allow time for RAGAS verification)
+      - TIMEOUT_MINUTES=30 # Wait up to 30 minutes for all 3 candidates to be verified
+      # DPO Quality Parameters (increased for better behavioral quality)
+      - MIN_SCORE_DIFF=0.3 # Minimum score difference (was 0.15)
+      - MIN_CHOSEN_SCORE=0.7 # Minimum score for chosen answer
+      - ENABLE_QUALITY_FILTER=true # Enable verbatim test and hedging detection
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+    volumes:
+      - ../data:/app/data
+
+  # ============================================================================
+  # UI
+  # ============================================================================
+
+  # Streamlit UI
+  streamlit-ui:
+    build:
+      context: ..
+      dockerfile: ui/streamlit/Dockerfile
+    container_name: streamlit-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_GATEWAY_URL=http://api-gateway:8000
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - rlvr-network
+
+# ============================================================================
+# NETWORKS & VOLUMES
+# ============================================================================
+
+networks:
+  rlvr-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  rabbitmq_data:
+  postgres_data:
