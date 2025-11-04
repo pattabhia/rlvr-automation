@@ -1,1 +1,1 @@
-# Package marker for rlvr-pdf-chat
+# Package marker for rlvr-automation

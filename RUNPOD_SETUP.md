@@ -5,7 +5,7 @@
 After starting your RunPod instance, run:
 
 ```bash
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 git pull  # Get latest fixes
 chmod +x runpod_launch_all.sh
 ./runpod_launch_all.sh
@@ -55,7 +55,7 @@ All services use `localhost` instead of Docker service names:
 Workers run as `python -m src.worker` with correct PYTHONPATH
 
 ### 4. Data Directories
-- Training data: `/workspace/rlvr-pdf-chat/data/training_data/`
+- Training data: `/workspace/rlvr-automation/data/training_data/`
 - DPO dataset: `/app/data/dpo_data/` (workers write here)
 
 ### 5. Prompt Engineering
@@ -89,7 +89,7 @@ tail -f /tmp/dataset-worker.log
 
 ```bash
 curl -X POST http://localhost:8002/ingest \
-  -F "file=@/workspace/rlvr-pdf-chat/aws-support-guide.pdf"
+  -F "file=@/workspace/rlvr-automation/aws-support-guide.pdf"
 ```
 
 ---
@@ -140,11 +140,11 @@ tail -50 /tmp/<service-name>.log
 
 # Restart specific service
 pkill -f "uvicorn.*8001"  # Kill QA Orchestrator
-cd /workspace/rlvr-pdf-chat/services/qa-orchestrator
+cd /workspace/rlvr-automation/services/qa-orchestrator
 export QDRANT_URL=http://localhost:6333
 export OLLAMA_URL=http://localhost:11434
 export RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/
-PYTHONPATH=/workspace/rlvr-pdf-chat/services/qa-orchestrator:/workspace/rlvr-pdf-chat \
+PYTHONPATH=/workspace/rlvr-automation/services/qa-orchestrator:/workspace/rlvr-automation \
   nohup uvicorn src.main:app --host 0.0.0.0 --port 8001 > /tmp/qa-orchestrator.log 2>&1 &
 ```
 
@@ -156,8 +156,8 @@ tail -f /tmp/dataset-worker.log
 
 # Restart workers
 pkill -f "python -m src.worker"
-cd /workspace/rlvr-pdf-chat/workers/verification-worker
-PYTHONPATH=/workspace/rlvr-pdf-chat/workers/verification-worker:/workspace/rlvr-pdf-chat \
+cd /workspace/rlvr-automation/workers/verification-worker
+PYTHONPATH=/workspace/rlvr-automation/workers/verification-worker:/workspace/rlvr-automation \
   nohup python -m src.worker > /tmp/verification-worker.log 2>&1 &
 ```
 
@@ -176,7 +176,7 @@ PYTHONPATH=/workspace/rlvr-pdf-chat/workers/verification-worker:/workspace/rlvr-
 Before stopping your pod:
 ```bash
 # Copy DPO data to workspace
-cp /app/data/dpo_data/*.jsonl /workspace/rlvr-pdf-chat/data/dpo_data/
+cp /app/data/dpo_data/*.jsonl /workspace/rlvr-automation/data/dpo_data/
 ```
 
 ---

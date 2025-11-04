@@ -79,7 +79,7 @@ ollama pull llama3.2:3b
 # Start services
 echo ""
 echo "🚀 Starting microservices..."
-cd /workspace/rlvr-pdf-chat/infrastructure
+cd /workspace/rlvr-automation/infrastructure
 docker-compose up -d
 
 # Wait for services

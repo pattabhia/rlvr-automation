@@ -45,7 +45,7 @@ toml
 .streamlit/credentials.toml
 docs/*
 training_data/*
-rlvr-pdf-chat.code-workspace
+rlvr-automation.code-workspace
 
 commit-msg.txt
 commit-all.sh
@@ -61,3 +61,9 @@ test_*.py
 *.svg
 .env.*
 archive/
+DEPLOYMENT_COMPARISON.md
+DOCKER_DEPLOYMENT.md
+RUNPOD_SETUP.md
+scripts/*
+data/*
+supervisord.conf

@@ -24,7 +24,7 @@ All services are managed by **Supervisor** inside the container.
 ### Option 1: Using the Deployment Script (Recommended)
 
 ```bash
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 
 # Build the Docker image
 chmod +x runpod_docker_deploy.sh
@@ -43,7 +43,7 @@ chmod +x runpod_docker_deploy.sh
 ### Option 2: Using Docker Compose Directly
 
 ```bash
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 
 # Build and start
 docker-compose -f docker-compose.runpod.yml up -d --build
@@ -228,7 +228,7 @@ Data is persisted in Docker volumes and host directories:
 
 ```yaml
 volumes:
-  - ./data:/workspace/rlvr-pdf-chat/data          # Training/DPO data
+  - ./data:/workspace/rlvr-automation/data          # Training/DPO data
   - ./qdrant_storage:/workspace/qdrant_storage    # Vector DB
   - ollama_models:/root/.ollama                   # LLM models
 ```

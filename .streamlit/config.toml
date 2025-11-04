@@ -1,0 +1,36 @@
+[theme]
+# Primary theme color (used for buttons, links, etc.)
+primaryColor = "#667eea"
+
+# Background color for the main content area
+backgroundColor = "#ffffff"
+
+# Background color for sidebar and most interactive widgets
+secondaryBackgroundColor = "#f0f2f6"
+
+# Color used for almost all text
+textColor = "#262730"
+
+# Font family for all text
+font = "sans serif"
+
+[server]
+# Enable file watcher for development
+fileWatcherType = "auto"
+
+# Maximum upload size (100 MB for PDFs)
+maxUploadSize = 100
+
+# Enable CORS for development
+enableCORS = false
+
+# Enable XSRF protection
+enableXsrfProtection = true
+
+[browser]
+# Automatically open browser on startup
+gatherUsageStats = false
+
+[client]
+# Show error details in browser console
+showErrorDetails = true
