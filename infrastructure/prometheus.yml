@@ -1,0 +1,134 @@
+# Prometheus Configuration for RLVR Automation Platform
+#
+# Scrapes metrics from:
+# - OpenTelemetry Collector (application metrics)
+# - Prometheus itself (self-monitoring)
+# - RabbitMQ (message queue metrics)
+# - Qdrant (vector database metrics)
+
+global:
+  scrape_interval: 15s      # How often to scrape targets
+  evaluation_interval: 15s  # How often to evaluate rules
+  
+  # Attach these labels to all time series
+  external_labels:
+    cluster: 'rlvr-automation'
+    environment: 'production'
+
+# Alertmanager configuration (optional - for future use)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alerts/*.yml"
+  # - "recording_rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          component: 'monitoring'
+
+  # OpenTelemetry Collector - Application metrics
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']
+        labels:
+          service: 'otel-collector'
+          component: 'telemetry'
+    
+    # Relabel to extract service name from metrics
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'rlvr_(.*)'
+        target_label: 'metric_type'
+        replacement: '$1'
+
+  # OpenTelemetry Collector internal metrics
+  - job_name: 'otel-collector-internal'
+    static_configs:
+      - targets: ['otel-collector:8888']
+        labels:
+          service: 'otel-collector'
+          component: 'internal'
+
+  # RabbitMQ metrics (if prometheus plugin is enabled)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'
+          component: 'messaging'
+    
+    # RabbitMQ metrics endpoint
+    metrics_path: '/metrics'
+
+  # Qdrant vector database metrics
+  - job_name: 'qdrant'
+    static_configs:
+      - targets: ['qdrant:6333']
+        labels:
+          service: 'qdrant'
+          component: 'vector-db'
+    
+    metrics_path: '/metrics'
+
+  # Individual microservices (if they expose /metrics endpoints)
+  # Uncomment if services expose Prometheus metrics directly
+  
+  # - job_name: 'api-gateway'
+  #   static_configs:
+  #     - targets: ['api-gateway:8000']
+  #       labels:
+  #         service: 'api-gateway'
+  #         component: 'api'
+  #   metrics_path: '/metrics'
+  
+  # - job_name: 'qa-orchestrator'
+  #   static_configs:
+  #     - targets: ['qa-orchestrator:8001']
+  #       labels:
+  #         service: 'qa-orchestrator'
+  #         component: 'qa'
+  #   metrics_path: '/metrics'
+  
+  # - job_name: 'document-ingestion'
+  #   static_configs:
+  #     - targets: ['document-ingestion:8002']
+  #       labels:
+  #         service: 'document-ingestion'
+  #         component: 'ingestion'
+  #   metrics_path: '/metrics'
+  
+  # - job_name: 'training-data'
+  #   static_configs:
+  #     - targets: ['training-data:8005']
+  #       labels:
+  #         service: 'training-data'
+  #         component: 'data'
+  #   metrics_path: '/metrics'
+  
+  # - job_name: 'ground-truth'
+  #   static_configs:
+  #     - targets: ['ground-truth:8007']
+  #       labels:
+  #         service: 'ground-truth'
+  #         component: 'data'
+  #   metrics_path: '/metrics'
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention:
+      time: 15d      # Keep data for 15 days
+      size: 10GB     # Maximum storage size
+

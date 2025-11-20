@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../shared'))
 
 from shared.events import EventPublisher, AnswerGeneratedEvent
+from shared.observability import setup_observability
 from src.qa_service import QAService
 from src.llm_adapters import create_llm_adapter
 
@@ -118,6 +119,13 @@ app = FastAPI(
     description="Question Answering service using RAG (Retrieval-Augmented Generation)",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Set up OpenTelemetry observability
+tracer, meter = setup_observability(
+    app=app,
+    service_name="qa-orchestrator",
+    service_version="1.0.0"
 )
 
 

@@ -19,3 +19,13 @@ transformers==4.36.0
 numpy==2.0.2
 plotly==5.18.0
 pandas==2.1.4
+
+# OpenTelemetry - Observability
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation==0.42b0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-httpx==0.42b0
+opentelemetry-instrumentation-logging==0.42b0
+opentelemetry-exporter-otlp==1.21.0
+opentelemetry-exporter-otlp-proto-grpc==1.21.0

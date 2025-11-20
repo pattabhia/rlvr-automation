@@ -1,0 +1,105 @@
+# OpenTelemetry Collector Configuration
+# 
+# This configuration receives telemetry data from instrumented services
+# and exports it to Prometheus (metrics), Loki (logs), and Tempo (traces).
+
+receivers:
+  # OTLP receiver for traces, metrics, and logs
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch processor - batches telemetry data before export
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+  
+  # Memory limiter - prevents OOM by limiting memory usage
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  
+  # Resource processor - adds/modifies resource attributes
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:ENVIRONMENT}
+        action: upsert
+      - key: service.namespace
+        value: rlvr-automation
+        action: insert
+
+  # Attributes processor - adds custom attributes to spans
+  attributes:
+    actions:
+      - key: http.client_ip
+        action: delete  # Remove PII
+      - key: net.peer.ip
+        action: delete  # Remove PII
+
+exporters:
+  # Prometheus exporter - exposes metrics endpoint
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: rlvr
+    const_labels:
+      environment: ${env:ENVIRONMENT}
+  
+  # Loki exporter - sends logs to Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    labels:
+      attributes:
+        service.name: ""
+        service.namespace: ""
+        deployment.environment: ""
+  
+  # OTLP exporter for Tempo - sends traces
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  
+  # Logging exporter - for debugging (optional)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  # Telemetry configuration for the collector itself
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888
+  
+  # Pipeline configurations
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, attributes]
+      exporters: [otlp/tempo, logging]
+    
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus, logging]
+    
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki, logging]
+
+  # Extensions for health checks and monitoring
+  extensions: []
+

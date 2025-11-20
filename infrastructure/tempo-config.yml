@@ -1,0 +1,82 @@
+# Tempo Configuration for RLVR Automation Platform
+#
+# Tempo is a distributed tracing backend that stores and queries traces.
+
+server:
+  http_listen_port: 3200
+  log_level: info
+
+# Distributor configuration - receives traces
+distributor:
+  receivers:
+    # OTLP receiver (from OpenTelemetry Collector)
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+    
+    # Jaeger receiver (optional - for Jaeger compatibility)
+    jaeger:
+      protocols:
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+        grpc:
+          endpoint: 0.0.0.0:14250
+    
+    # Zipkin receiver (optional - for Zipkin compatibility)
+    zipkin:
+      endpoint: 0.0.0.0:9411
+
+# Ingester configuration - writes traces to storage
+ingester:
+  trace_idle_period: 10s
+  max_block_bytes: 1_000_000
+  max_block_duration: 5m
+
+# Compactor configuration - compacts and retains traces
+compactor:
+  compaction:
+    compaction_window: 1h
+    max_block_bytes: 100_000_000
+    block_retention: 336h  # 14 days
+    compacted_block_retention: 1h
+
+# Storage configuration
+storage:
+  trace:
+    backend: local
+    local:
+      path: /tempo/traces
+    wal:
+      path: /tempo/wal
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# Metrics generator (optional - generates metrics from traces)
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: rlvr-automation
+  storage:
+    path: /tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+
+# Query frontend configuration
+query_frontend:
+  search:
+    max_duration: 0s  # No limit
+  trace_by_id:
+    query_timeout: 10s
+
+# Overrides configuration
+overrides:
+  metrics_generator_processors:
+    - service-graphs
+    - span-metrics
+

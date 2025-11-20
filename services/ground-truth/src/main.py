@@ -4,13 +4,19 @@ Ground Truth Service - Main Application
 Generic, domain-agnostic ground truth management service.
 """
 
+import os
+import sys
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Add shared directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
+
 from .database.connection import engine, Base
 from .api import domains, entries, health
+from shared.observability import setup_observability
 
 # Configure logging
 logging.basicConfig(
@@ -42,6 +48,13 @@ app = FastAPI(
     description="Generic, domain-agnostic ground truth management for RLVR Platform",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Set up OpenTelemetry observability
+tracer, meter = setup_observability(
+    app=app,
+    service_name="ground-truth",
+    service_version="1.0.0"
 )
 
 # Add CORS middleware

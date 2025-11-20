@@ -28,6 +28,7 @@ from src.embedding_service import EmbeddingService, BatchEmbeddingProcessor
 from src.vector_store import VectorStore
 from shared.events.publisher import EventPublisher
 from shared.events.schemas import DocumentIngestedEvent
+from shared.observability import setup_observability
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,13 @@ app = FastAPI(
     title="Document Ingestion Service",
     description="PDF processing and vector store ingestion",
     version="1.0.0"
+)
+
+# Set up OpenTelemetry observability
+tracer, meter = setup_observability(
+    app=app,
+    service_name="document-ingestion",
+    service_version="1.0.0"
 )
 
 # Initialize components

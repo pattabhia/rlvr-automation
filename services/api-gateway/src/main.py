@@ -9,6 +9,7 @@ Provides:
 """
 
 import os
+import sys
 import logging
 from typing import Dict, Any, Optional
 
@@ -16,6 +17,11 @@ import httpx
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+
+# Add parent directory to path for shared module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../"))
+
+from shared.observability import setup_observability
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +35,13 @@ app = FastAPI(
     title="API Gateway",
     description="Unified entry point for RLVR PDF Chat microservices",
     version="1.0.0"
+)
+
+# Set up OpenTelemetry observability
+tracer, meter = setup_observability(
+    app=app,
+    service_name="api-gateway",
+    service_version="1.0.0"
 )
 
 # Add CORS middleware

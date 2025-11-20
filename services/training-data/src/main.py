@@ -9,11 +9,15 @@ Provides endpoints for:
 """
 
 import os
+import sys
 import logging
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
+
+# Add shared directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))
 
 from src.models import (
     DatasetListResponse,
@@ -24,6 +28,7 @@ from src.models import (
     HealthResponse
 )
 from src.dataset_manager import DatasetManager
+from shared.observability import setup_observability
 
 # Configure logging
 logging.basicConfig(
@@ -37,6 +42,13 @@ app = FastAPI(
     title="Training Data Service",
     description="Manage and export training datasets for RLVR fine-tuning",
     version="1.0.0"
+)
+
+# Set up OpenTelemetry observability
+tracer, meter = setup_observability(
+    app=app,
+    service_name="training-data",
+    service_version="1.0.0"
 )
 
 # Initialize dataset manager
