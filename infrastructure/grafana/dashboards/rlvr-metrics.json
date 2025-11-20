@@ -1,0 +1,214 @@
+{
+  "dashboard": {
+    "title": "RLVR Automation - RLVR Metrics",
+    "tags": ["rlvr", "metrics", "ragas", "rewards"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "RAGAS Scores Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "avg(rate(rlvr_ragas_faithfulness_sum[5m]) / rate(rlvr_ragas_faithfulness_count[5m]))",
+            "legendFormat": "Faithfulness",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(rate(rlvr_ragas_relevancy_sum[5m]) / rate(rlvr_ragas_relevancy_count[5m]))",
+            "legendFormat": "Relevancy",
+            "refId": "B"
+          },
+          {
+            "expr": "avg(rate(rlvr_ragas_overall_sum[5m]) / rate(rlvr_ragas_overall_count[5m]))",
+            "legendFormat": "Overall",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "percentunit", "label": "Score", "min": 0, "max": 1},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Reward Score Distribution (p50, p95, p99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(rlvr_reward_score_bucket[5m]))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(rlvr_reward_score_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(rlvr_reward_score_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "percentunit", "label": "Reward Score", "min": 0, "max": 1},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Average RAGAS Score",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "avg(rate(rlvr_ragas_overall_sum[5m]) / rate(rlvr_ragas_overall_count[5m]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.5, "color": "yellow"},
+                {"value": 0.7, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Average Reward Score",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+        "targets": [
+          {
+            "expr": "avg(rate(rlvr_reward_score_sum[5m]) / rate(rlvr_reward_score_count[5m]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.5, "color": "yellow"},
+                {"value": 0.7, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Candidates Generated (Total)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rlvr_candidates_generated_total)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 6,
+        "title": "DPO Pairs Created",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rlvr_dpo_pairs_created_total)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 7,
+        "title": "DPO Score Difference (Quality Indicator)",
+        "type": "gauge",
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "avg(rate(rlvr_dpo_score_difference_sum[5m]) / rate(rlvr_dpo_score_difference_count[5m]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.15, "color": "yellow"},
+                {"value": 0.3, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Candidates Generated Rate (per minute)",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "rate(rlvr_candidates_generated_total[1m]) * 60",
+            "legendFormat": "Candidates/min",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Candidates per minute"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
+
