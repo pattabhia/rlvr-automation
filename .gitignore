@@ -1,0 +1,46 @@
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+venv/
+.venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Data / artifacts
+qdrant_storage
+node_modules/
+*.sqlite3
+*.db
+*.log
+*.pkl
+
+# Frontend builds
+*.bundle.js
+*.map
+*-workspace/
+toml
+
+.streamlit
+docs/*
+training_data/*
+rlvr-pdf-chat.code-workspace
