@@ -13,6 +13,7 @@ from .embedding import EmbeddingsPort
 from .vectorstore import VectorStorePort
 from .verification import VerificationPort
 from .pdf_processor import PDFProcessorPort
+from .reward import RewardPort
 
 __all__ = [
     "LLMPort",
@@ -20,4 +21,5 @@ __all__ = [
     "VectorStorePort",
     "VerificationPort",
     "PDFProcessorPort",
+    "RewardPort",
 ]

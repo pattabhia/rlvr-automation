@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from string import Template
 
 from langchain_ollama import ChatOllama
@@ -41,6 +41,8 @@ class RAGService:
         llm: LLMPort,
         top_k: int,
         enable_training_logging: bool = True,
+        rlvr_candidate_service: Optional[object] = None,
+        rlvr_training_logger: Optional[object] = None,
     ):
         self.vector_store = vector_store
         self.embeddings = embeddings
@@ -50,8 +52,14 @@ class RAGService:
         self.top_k = top_k
         self.retriever = self.vector_store.as_retriever(k=self.top_k)
         self.training_logger = TrainingDataLogger(enabled=enable_training_logging)
-        logger.info("RAGService initialized (profile=%s, top_k=%d, training_logging=%s)",
-                   settings.qdrant.active_profile, self.top_k, enable_training_logging)
+
+        # RLVR components (optional)
+        self.rlvr_candidate_service = rlvr_candidate_service
+        self.rlvr_training_logger = rlvr_training_logger
+
+        logger.info("RAGService initialized (profile=%s, top_k=%d, training_logging=%s, rlvr_enabled=%s)",
+                   settings.qdrant.active_profile, self.top_k, enable_training_logging,
+                   rlvr_candidate_service is not None)
 
     def update_top_k(self, top_k: int) -> None:
         self.top_k = top_k
@@ -147,4 +155,85 @@ class RAGService:
             "answer": answer,
             "sources": source_docs,
             "verification": verification,
+        }
+
+    def answer_question_rlvr(self, question: str):
+        """
+        Answer question using RLVR multi-candidate generation and selection.
+
+        This method:
+        1. Retrieves context from vector store
+        2. Generates multiple candidate answers with different parameters
+        3. Scores each candidate with verifiable reward function
+        4. Selects and returns the best candidate
+        5. Logs all candidates for DPO training
+
+        Args:
+            question: User's question
+
+        Returns:
+            Dictionary with:
+            - answer: Best selected answer
+            - sources: Retrieved source documents
+            - verification: RAGAS verification scores
+            - rlvr_candidates: All generated candidates with rewards
+            - rlvr_best_index: Index of selected candidate
+        """
+        if self.rlvr_candidate_service is None:
+            logger.warning("RLVR mode requested but no candidate service configured; falling back to standard mode")
+            return self.answer_question(question)
+
+        logger.info("Answering question with RLVR mode (top_k=%d)", self.top_k)
+
+        # Step 1: Retrieve context
+        source_docs = self._retrieve(question)
+        logger.info("Retrieved %d docs for RLVR question", len(source_docs))
+
+        context = "\n\n".join(doc.page_content for doc in source_docs)
+        prompt_template = QA_PROMPT.template
+
+        # Step 2: Generate and score multiple candidates
+        rlvr_result = self.rlvr_candidate_service.generate_and_score_candidates(
+            question=question,
+            context=context,
+            prompt_template=prompt_template,
+        )
+
+        answer = rlvr_result["best_answer"]
+        candidates = rlvr_result["candidates"]
+        best_index = rlvr_result["best_index"]
+
+        logger.info(
+            f"RLVR selected best answer (index={best_index}, "
+            f"reward={candidates[best_index]['reward']:.3f})"
+        )
+
+        # Step 3: Verify best answer with RAGAS
+        contexts = [doc.page_content for doc in source_docs]
+        verification = self.verifier.verify(question, answer, contexts)
+
+        # Step 4: Log for DPO training
+        if self.rlvr_training_logger:
+            self.rlvr_training_logger.log_candidates(
+                question=question,
+                context=context,
+                candidates=candidates,
+                best_index=best_index,
+            )
+
+        # Also log to regular training logger for consistency
+        self.training_logger.log_interaction(
+            question=question,
+            answer=answer,
+            contexts=contexts,
+            verification_scores=verification,
+            sources=source_docs,
+        )
+
+        return {
+            "answer": answer,
+            "sources": source_docs,
+            "verification": verification,
+            "rlvr_candidates": candidates,
+            "rlvr_best_index": best_index,
         }
