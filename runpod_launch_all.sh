@@ -29,8 +29,8 @@ cd /workspace/rlvr-pdf-chat
 
 # Start QA Orchestrator
 echo "Starting QA Orchestrator..."
-cd services/qa-orchestrator/src
-nohup uvicorn main:app --host 0.0.0.0 --port 8001 > /tmp/qa-orchestrator.log 2>&1 &
+cd services/qa-orchestrator
+PYTHONPATH=/workspace/rlvr-pdf-chat/services/qa-orchestrator:/workspace/rlvr-pdf-chat nohup uvicorn src.main:app --host 0.0.0.0 --port 8001 > /tmp/qa-orchestrator.log 2>&1 &
 echo "QA Orchestrator PID: $!"
 
 # Start Verification Worker
@@ -47,14 +47,14 @@ echo "Dataset Worker PID: $!"
 
 # Start API Gateway
 echo "Starting API Gateway..."
-cd /workspace/rlvr-pdf-chat/services/api-gateway/src
-nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/api-gateway.log 2>&1 &
+cd /workspace/rlvr-pdf-chat/services/api-gateway
+PYTHONPATH=/workspace/rlvr-pdf-chat/services/api-gateway:/workspace/rlvr-pdf-chat nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 > /tmp/api-gateway.log 2>&1 &
 echo "API Gateway PID: $!"
 
 # Start Streamlit UI
 echo "Starting Streamlit UI..."
-cd /workspace/rlvr-pdf-chat/ui/streamlit/src
-nohup streamlit run app_simple.py --server.port=8501 --server.address=0.0.0.0 > /tmp/streamlit.log 2>&1 &
+cd /workspace/rlvr-pdf-chat/ui/streamlit
+PYTHONPATH=/workspace/rlvr-pdf-chat/ui/streamlit:/workspace/rlvr-pdf-chat nohup streamlit run src/app_simple.py --server.port=8501 --server.address=0.0.0.0 > /tmp/streamlit.log 2>&1 &
 echo "Streamlit UI PID: $!"
 
 sleep 10
