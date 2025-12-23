@@ -14,7 +14,7 @@ sleep 2
 
 # Set environment variables for native deployment (localhost instead of Docker service names)
 echo "⚙️  Setting environment variables..."
-export PYTHONPATH=/workspace/rlvr-pdf-chat
+export PYTHONPATH=/workspace/rlvr-automation
 export RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/
 export OLLAMA_HOST=http://localhost:11434
 export OLLAMA_URL=http://localhost:11434
@@ -26,8 +26,8 @@ export MIN_SCORE_DIFF=0.3
 export MIN_CHOSEN_SCORE=0.7
 export ENABLE_QUALITY_FILTER=true
 export TIMEOUT_MINUTES=30
-export TRAINING_DATA_DIR=/workspace/rlvr-pdf-chat/data/training_data
-export DPO_DATA_DIR=/workspace/rlvr-pdf-chat/data/dpo_data
+export TRAINING_DATA_DIR=/workspace/rlvr-automation/data/training_data
+export DPO_DATA_DIR=/workspace/rlvr-automation/data/dpo_data
 
 # API Gateway service URLs (localhost for native deployment)
 export QA_ORCHESTRATOR_URL=http://localhost:8001
@@ -35,7 +35,7 @@ export DOC_INGESTION_SERVICE_URL=http://localhost:8002
 export TRAINING_DATA_SERVICE_URL=http://localhost:8005
 export GROUND_TRUTH_SERVICE_URL=http://localhost:8007
 
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 
 # Install Qdrant if not present
 if ! command -v qdrant &> /dev/null; then
@@ -46,7 +46,7 @@ if ! command -v qdrant &> /dev/null; then
     mv qdrant /usr/local/bin/
     chmod +x /usr/local/bin/qdrant
     rm qdrant-x86_64-unknown-linux-gnu.tar.gz
-    cd /workspace/rlvr-pdf-chat
+    cd /workspace/rlvr-automation
     echo "✅ Qdrant installed"
 else
     echo "✅ Qdrant already installed"
@@ -58,7 +58,7 @@ mkdir -p /workspace/qdrant_storage
 cd /workspace/qdrant_storage
 nohup /usr/local/bin/qdrant > /tmp/qdrant.log 2>&1 &
 echo "   Qdrant PID: $!"
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 sleep 5
 
 # Install/upgrade all service dependencies to override RunPod base image packages
@@ -74,43 +74,43 @@ echo ""
 
 # Start Document Ingestion Service
 echo "📄 Starting Document Ingestion Service..."
-cd /workspace/rlvr-pdf-chat/services/document-ingestion
-PYTHONPATH=/workspace/rlvr-pdf-chat/services/document-ingestion:/workspace/rlvr-pdf-chat nohup uvicorn src.main:app --host 0.0.0.0 --port 8002 > /tmp/document-ingestion.log 2>&1 &
+cd /workspace/rlvr-automation/services/document-ingestion
+PYTHONPATH=/workspace/rlvr-automation/services/document-ingestion:/workspace/rlvr-automation nohup uvicorn src.main:app --host 0.0.0.0 --port 8002 > /tmp/document-ingestion.log 2>&1 &
 echo "   Document Ingestion PID: $!"
 sleep 3
 
 # Start QA Orchestrator (with correct environment variables for native deployment)
 echo "🤖 Starting QA Orchestrator..."
-cd /workspace/rlvr-pdf-chat/services/qa-orchestrator
-PYTHONPATH=/workspace/rlvr-pdf-chat/services/qa-orchestrator:/workspace/rlvr-pdf-chat nohup uvicorn src.main:app --host 0.0.0.0 --port 8001 > /tmp/qa-orchestrator.log 2>&1 &
+cd /workspace/rlvr-automation/services/qa-orchestrator
+PYTHONPATH=/workspace/rlvr-automation/services/qa-orchestrator:/workspace/rlvr-automation nohup uvicorn src.main:app --host 0.0.0.0 --port 8001 > /tmp/qa-orchestrator.log 2>&1 &
 echo "   QA Orchestrator PID: $!"
 sleep 3
 
 # Start Verification Worker (with correct module path)
 echo "✅ Starting Verification Worker..."
-cd /workspace/rlvr-pdf-chat/workers/verification-worker
-PYTHONPATH=/workspace/rlvr-pdf-chat/workers/verification-worker:/workspace/rlvr-pdf-chat nohup python -m src.worker > /tmp/verification-worker.log 2>&1 &
+cd /workspace/rlvr-automation/workers/verification-worker
+PYTHONPATH=/workspace/rlvr-automation/workers/verification-worker:/workspace/rlvr-automation nohup python -m src.worker > /tmp/verification-worker.log 2>&1 &
 echo "   Verification Worker PID: $!"
 sleep 2
 
 # Start Dataset Generation Worker (with correct module path and data directories)
 echo "📊 Starting Dataset Generation Worker..."
-cd /workspace/rlvr-pdf-chat/workers/dataset-generation-worker
-PYTHONPATH=/workspace/rlvr-pdf-chat/workers/dataset-generation-worker:/workspace/rlvr-pdf-chat nohup python -m src.worker > /tmp/dataset-worker.log 2>&1 &
+cd /workspace/rlvr-automation/workers/dataset-generation-worker
+PYTHONPATH=/workspace/rlvr-automation/workers/dataset-generation-worker:/workspace/rlvr-automation nohup python -m src.worker > /tmp/dataset-worker.log 2>&1 &
 echo "   Dataset Worker PID: $!"
 sleep 2
 
 # Start API Gateway
 echo "🌐 Starting API Gateway..."
-cd /workspace/rlvr-pdf-chat/services/api-gateway
-PYTHONPATH=/workspace/rlvr-pdf-chat/services/api-gateway:/workspace/rlvr-pdf-chat nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 > /tmp/api-gateway.log 2>&1 &
+cd /workspace/rlvr-automation/services/api-gateway
+PYTHONPATH=/workspace/rlvr-automation/services/api-gateway:/workspace/rlvr-automation nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 > /tmp/api-gateway.log 2>&1 &
 echo "   API Gateway PID: $!"
 sleep 3
 
 # Start Streamlit UI
 echo "🎨 Starting Streamlit UI..."
-cd /workspace/rlvr-pdf-chat/ui/streamlit
-PYTHONPATH=/workspace/rlvr-pdf-chat/ui/streamlit:/workspace/rlvr-pdf-chat nohup streamlit run src/app_simple.py > /tmp/streamlit.log 2>&1 &
+cd /workspace/rlvr-automation/ui/streamlit
+PYTHONPATH=/workspace/rlvr-automation/ui/streamlit:/workspace/rlvr-automation nohup streamlit run src/app_simple.py > /tmp/streamlit.log 2>&1 &
 echo "   Streamlit UI PID: $!"
 
 echo ""
@@ -156,8 +156,8 @@ echo "  tail -f /tmp/api-gateway.log"
 echo "  tail -f /tmp/streamlit.log"
 echo ""
 echo "📊 Data directories:"
-echo "  Training data: /workspace/rlvr-pdf-chat/data/training_data/"
-echo "  DPO dataset:   /workspace/rlvr-pdf-chat/data/dpo_data/"
+echo "  Training data: /workspace/rlvr-automation/data/training_data/"
+echo "  DPO dataset:   /workspace/rlvr-automation/data/dpo_data/"
 echo "  Note: Workers also write to /app/data/ - copy files if needed"
 echo ""
 echo "🎯 GPU Status:"

@@ -44,7 +44,7 @@
 
 ### 📋 Quick Start
 ```bash
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 git pull
 
 # Build once
@@ -90,7 +90,7 @@ git pull
 
 ### 📋 Quick Start
 ```bash
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 git pull
 
 # Start everything
@@ -231,7 +231,7 @@ pkill -f "python -m src.worker"
 pkill -f qdrant
 
 # Copy data (if needed)
-cp -r /workspace/rlvr-pdf-chat/data ./data-backup
+cp -r /workspace/rlvr-automation/data ./data-backup
 
 # Start Docker
 ./runpod_docker_deploy.sh start

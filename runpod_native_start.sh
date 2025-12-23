@@ -52,7 +52,7 @@ curl -s http://localhost:11434/api/tags | head -20
 # Install Python dependencies
 echo ""
 echo "📦 Installing Python dependencies..."
-cd /workspace/rlvr-pdf-chat
+cd /workspace/rlvr-automation
 
 # Install all service dependencies (in correct order to avoid conflicts)
 pip install -q --no-cache-dir \
@@ -115,10 +115,10 @@ echo "🗄️  Starting PostgreSQL..."
 service postgresql start || echo "⚠️  PostgreSQL not available"
 
 # Create data directories
-mkdir -p /workspace/rlvr-pdf-chat/data/{training_data,dpo_data,uploads,qdrant_storage}
+mkdir -p /workspace/rlvr-automation/data/{training_data,dpo_data,uploads,qdrant_storage}
 
 # Set environment variables
-export PYTHONPATH=/workspace/rlvr-pdf-chat
+export PYTHONPATH=/workspace/rlvr-automation
 export RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/
 export OLLAMA_HOST=http://localhost:11434
 export QDRANT_URL=http://localhost:6333
@@ -131,19 +131,19 @@ echo ""
 echo "🎯 Next: Start services manually in separate terminals"
 echo ""
 echo "Terminal 1 - QA Orchestrator:"
-echo "  cd /workspace/rlvr-pdf-chat/services/qa-orchestrator/src"
+echo "  cd /workspace/rlvr-automation/services/qa-orchestrator/src"
 echo "  OLLAMA_HOST=http://localhost:11434 uvicorn main:app --host 0.0.0.0 --port 8001"
 echo ""
 echo "Terminal 2 - Verification Worker:"
-echo "  cd /workspace/rlvr-pdf-chat/workers/verification-worker/src"
+echo "  cd /workspace/rlvr-automation/workers/verification-worker/src"
 echo "  RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/ OLLAMA_HOST=http://localhost:11434 python -m worker"
 echo ""
 echo "Terminal 3 - Dataset Worker:"
-echo "  cd /workspace/rlvr-pdf-chat/workers/dataset-generation-worker/src"
+echo "  cd /workspace/rlvr-automation/workers/dataset-generation-worker/src"
 echo "  RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/ python -m worker"
 echo ""
 echo "Terminal 4 - Streamlit UI:"
-echo "  cd /workspace/rlvr-pdf-chat/ui/streamlit/src"
+echo "  cd /workspace/rlvr-automation/ui/streamlit/src"
 echo "  streamlit run app_simple.py --server.port=8501 --server.address=0.0.0.0"
 echo ""
 echo "📊 Or use the all-in-one launcher:"
