@@ -19,6 +19,12 @@ export MIN_CHOSEN_SCORE=0.7
 export ENABLE_QUALITY_FILTER=true
 export TIMEOUT_MINUTES=30
 
+# API Gateway service URLs (localhost for native deployment)
+export QA_ORCHESTRATOR_URL=http://localhost:8001
+export DOC_INGESTION_SERVICE_URL=http://localhost:8002
+export TRAINING_DATA_SERVICE_URL=http://localhost:8005
+export GROUND_TRUTH_SERVICE_URL=http://localhost:8007
+
 cd /workspace/rlvr-pdf-chat
 
 # Start QA Orchestrator
