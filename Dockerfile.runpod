@@ -6,65 +6,77 @@ RUN apt-get update && apt-get install -y \
     git \
     wget \
     ca-certificates \
-    gnupg \
-    lsb-release \
-    postgresql-client \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Docker
-RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
-    sh get-docker.sh && \
-    rm get-docker.sh
-
-# Install Docker Compose
-RUN curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
-    chmod +x /usr/local/bin/docker-compose
 
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
+# Install Qdrant binary
+RUN cd /tmp && \
+    wget -q https://github.com/qdrant/qdrant/releases/download/v1.7.4/qdrant-x86_64-unknown-linux-gnu.tar.gz && \
+    tar -xzf qdrant-x86_64-unknown-linux-gnu.tar.gz && \
+    mv qdrant /usr/local/bin/ && \
+    chmod +x /usr/local/bin/qdrant && \
+    rm qdrant-x86_64-unknown-linux-gnu.tar.gz
+
+# Install RabbitMQ
+RUN apt-get update && apt-get install -y rabbitmq-server && \
+    rm -rf /var/lib/apt/lists/*
+
 # Set working directory
-WORKDIR /workspace
+WORKDIR /workspace/rlvr-pdf-chat
 
 # Copy project files
-COPY . /workspace/
+COPY . /workspace/rlvr-pdf-chat/
 
-# Install Python dependencies
-RUN pip install --no-cache-dir \
-    fastapi==0.104.1 \
-    uvicorn[standard]==0.24.0 \
-    pydantic==2.5.0 \
-    pydantic-settings==2.1.0 \
-    sentence-transformers==2.7.0 \
-    qdrant-client==1.7.0 \
-    pdfplumber==0.10.3 \
-    pika==1.3.2 \
-    ollama==0.1.6 \
-    streamlit==1.29.0 \
-    requests==2.31.0 \
-    python-multipart==0.0.6 \
-    psycopg2-binary==2.9.9 \
-    torch \
-    transformers
+# Install all Python dependencies from requirements files
+RUN pip install --no-cache-dir --upgrade \
+    -r services/qa-orchestrator/requirements.txt \
+    -r services/api-gateway/requirements.txt \
+    -r services/document-ingestion/requirements.txt \
+    -r ui/streamlit/requirements.txt \
+    -r workers/verification-worker/requirements.txt \
+    -r workers/dataset-generation-worker/requirements.txt
 
 # Create data directories
-RUN mkdir -p /workspace/data/training_data /workspace/data/uploads
+RUN mkdir -p \
+    /workspace/rlvr-pdf-chat/data/training_data \
+    /workspace/rlvr-pdf-chat/data/dpo_data \
+    /workspace/rlvr-pdf-chat/data/uploads \
+    /workspace/qdrant_storage \
+    /app/data/training_data \
+    /app/data/dpo_data
 
 # Expose all required ports
-EXPOSE 8501 8000 8001 8002 8005 8007 6333 11434 5672 15672 5432
+EXPOSE 8501 8000 8001 8002 6333 11434 5672
 
-# Copy startup script
-COPY runpod_start.sh /start.sh
-RUN chmod +x /start.sh
-
-# Set environment variables for GPU
+# Set environment variables
+ENV PYTHONPATH=/workspace/rlvr-pdf-chat
+ENV RABBITMQ_URL=amqp://rlvr:rlvr_password@localhost:5672/
+ENV OLLAMA_HOST=http://localhost:11434
+ENV OLLAMA_URL=http://localhost:11434
+ENV OLLAMA_MODEL=llama3.2:3b
+ENV QDRANT_URL=http://localhost:6333
+ENV QDRANT_HOST=localhost
+ENV QDRANT_PORT=6333
+ENV QA_ORCHESTRATOR_URL=http://localhost:8001
+ENV DOC_INGESTION_SERVICE_URL=http://localhost:8002
+ENV TRAINING_DATA_DIR=/workspace/rlvr-pdf-chat/data/training_data
+ENV DPO_DATA_DIR=/app/data/dpo_data
 ENV OLLAMA_GPU_LAYERS=999
 ENV CUDA_VISIBLE_DEVICES=0
-ENV OLLAMA_HOST=0.0.0.0:11434
+
+# Copy supervisor configuration
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Make startup script executable
+RUN chmod +x runpod_launch_all.sh
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8501 || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8501 && curl -f http://localhost:8000/health || exit 1
 
-CMD ["/start.sh"]
+# Use supervisor to manage all services
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
