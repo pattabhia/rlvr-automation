@@ -27,6 +27,15 @@ export GROUND_TRUTH_SERVICE_URL=http://localhost:8007
 
 cd /workspace/rlvr-pdf-chat
 
+# Install/upgrade all service dependencies to override RunPod base image packages
+echo "Installing service dependencies..."
+pip install --upgrade -r services/qa-orchestrator/requirements.txt
+pip install --upgrade -r services/api-gateway/requirements.txt
+pip install --upgrade -r ui/streamlit/requirements.txt
+pip install --upgrade -r workers/verification-worker/requirements.txt
+pip install --upgrade -r workers/dataset-generation-worker/requirements.txt
+echo "Dependencies installed!"
+
 # Start QA Orchestrator
 echo "Starting QA Orchestrator..."
 cd services/qa-orchestrator
