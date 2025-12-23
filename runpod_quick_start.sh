@@ -14,7 +14,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 echo ""
 echo "📦 Installing Docker..."
 apt-get update -qq
-apt-get install -y -qq curl ca-certificates gnupg lsb-release postgresql-client
+apt-get install -y -qq curl ca-certificates gnupg lsb-release postgresql-client iptables
 curl -fsSL https://get.docker.com -o get-docker.sh
 sh get-docker.sh
 rm get-docker.sh
@@ -25,13 +25,36 @@ echo "📦 Installing Docker Compose..."
 curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Start Docker daemon
+# Start Docker daemon with proper settings
 echo ""
 echo "🐳 Starting Docker daemon..."
-dockerd > /tmp/dockerd.log 2>&1 &
-sleep 10
+# Kill any existing dockerd
+pkill dockerd || true
+sleep 2
 
-# Verify Docker
+# Start dockerd with nvidia runtime
+dockerd --add-runtime=nvidia=/usr/bin/nvidia-container-runtime > /tmp/dockerd.log 2>&1 &
+DOCKER_PID=$!
+echo "Docker daemon PID: $DOCKER_PID"
+
+# Wait for Docker to be ready
+echo "Waiting for Docker daemon to start..."
+for i in {1..30}; do
+    if docker info > /dev/null 2>&1; then
+        echo "✅ Docker daemon is ready!"
+        break
+    fi
+    echo "Waiting... ($i/30)"
+    sleep 2
+done
+
+# Verify Docker is working
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Docker daemon failed to start. Check /tmp/dockerd.log"
+    tail -50 /tmp/dockerd.log
+    exit 1
+fi
+
 docker --version
 docker-compose --version
 
