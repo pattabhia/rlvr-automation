@@ -108,17 +108,17 @@ class QAService:
         query_embedding = self.embeddings.embed_query(question)
 
         # Search Qdrant (using search method for qdrant-client >= 1.8.0)
-        search_result = self.qdrant_client.search(
+        search_results = self.qdrant_client.search(
             collection_name=self.qdrant_collection,
             query_vector=query_embedding,
             limit=self.top_k,
             with_payload=True,
             with_vectors=False
         )
-        
-        # Extract documents
+
+        # Extract documents (search returns a list of ScoredPoint objects directly)
         contexts = []
-        for point in search_result.points:
+        for point in search_results:
             contexts.append({
                 "content": point.payload.get("page_content", ""),
                 "metadata": point.payload.get("metadata", {}),
