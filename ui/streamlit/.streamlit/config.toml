@@ -1,0 +1,24 @@
+[server]
+# Enable CORS for RunPod proxy
+enableCORS = true
+
+# Enable WebSocket compression for better performance
+enableWebsocketCompression = true
+
+# Disable XSRF protection for proxy compatibility
+enableXsrfProtection = false
+
+# Run in headless mode (no browser auto-open)
+headless = true
+
+# Server binding
+port = 8501
+address = "0.0.0.0"
+
+[browser]
+# Don't collect usage stats
+gatherUsageStats = false
+
+# Server address for browser connections
+serverAddress = "0.0.0.0"
+serverPort = 8501

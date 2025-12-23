@@ -40,7 +40,9 @@ node_modules/
 *-workspace/
 toml
 
-.streamlit
+# Streamlit (allow config.toml but ignore cache)
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 docs/*
 training_data/*
 rlvr-pdf-chat.code-workspace
