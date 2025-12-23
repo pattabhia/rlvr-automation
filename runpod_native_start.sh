@@ -54,7 +54,7 @@ echo ""
 echo "📦 Installing Python dependencies..."
 cd /workspace/rlvr-pdf-chat
 
-# Install all service dependencies
+# Install all service dependencies (in correct order to avoid conflicts)
 pip install -q --no-cache-dir \
     fastapi==0.104.1 \
     uvicorn[standard]==0.24.0 \
@@ -64,19 +64,27 @@ pip install -q --no-cache-dir \
     qdrant-client==1.7.0 \
     pdfplumber==0.10.3 \
     pika==1.3.2 \
-    ollama==0.1.6 \
     streamlit==1.29.0 \
     requests==2.31.0 \
     python-multipart==0.0.6 \
     psycopg2-binary==2.9.9 \
-    ragas==0.1.9 \
-    datasets==2.16.1 \
+    python-dotenv==1.0.0
+
+# Install langchain and RAGAS dependencies (separate to avoid conflicts)
+pip install -q --no-cache-dir \
     langchain==0.2.0 \
     langchain-core==0.2.20 \
     langchain-community==0.2.0 \
-    langchain-ollama==0.1.0 \
     langchain-huggingface==0.0.1 \
-    python-dotenv==1.0.0
+    datasets==2.16.1
+
+# Install ollama and langchain-ollama (compatible versions)
+pip install -q --no-cache-dir \
+    ollama \
+    langchain-ollama
+
+# Install RAGAS last
+pip install -q --no-cache-dir ragas==0.1.9
 
 # Start RabbitMQ
 echo ""
