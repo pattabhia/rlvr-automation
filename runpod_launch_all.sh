@@ -331,13 +331,7 @@ pip install --upgrade -q -r ui/streamlit/requirements.txt
 pip install --upgrade -q -r workers/verification-worker/requirements.txt
 pip install --upgrade -q -r workers/dataset-generation-worker/requirements.txt
 
-# Install OpenTelemetry instrumentation
-echo "📦 Installing OpenTelemetry instrumentation..."
-pip install --upgrade -q opentelemetry-api opentelemetry-sdk opentelemetry-instrumentation \
-    opentelemetry-instrumentation-fastapi opentelemetry-instrumentation-httpx \
-    opentelemetry-instrumentation-pika opentelemetry-exporter-otlp
-
-echo "✅ Dependencies installed"
+echo "✅ Dependencies installed (including OpenTelemetry)"
 echo ""
 
 # Start Document Ingestion Service
