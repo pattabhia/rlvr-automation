@@ -38,65 +38,77 @@ draw_box_bottom() {
 
 # Function to parse logs and extract pipeline data
 parse_pipeline_data() {
+    # Extract questions from QA Orchestrator
     if [ -f "$LOG_DIR/qa-orchestrator.log" ]; then
-        # Extract recent questions
-        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep -i "question\|query" | tail -5 | while read line; do
-            if [[ $line =~ question.*:.*\"([^\"]+)\" ]] || [[ $line =~ query.*:.*\"([^\"]+)\" ]]; then
-                question="${BASH_REMATCH[1]}"
-                timestamp=$(echo "$line" | grep -oP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' || date +"%Y-%m-%d %H:%M:%S")
-                echo "QUESTION|$timestamp|$question"
+        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep "Generating.*candidate answers for question" | tail -5 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+            question=$(echo "$line" | sed 's/.*question: //' | sed 's/"//g')
+            echo "QUESTION|$timestamp|$question"
+        done
+
+        # Extract published events (answer.generated) to show worker activity
+        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep "Published event: answer.generated" | tail -10 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+            if [[ $line =~ id=([a-f0-9-]+) ]]; then
+                event_id="${BASH_REMATCH[1]}"
+                echo "WORKER|$timestamp|Candidate-${event_id:0:8}|Answer generated and sent to verification"
             fi
         done
-        
-        # Extract worker responses with IDs
-        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep -iE "worker|llm.*response|candidate.*response" | tail -10 | while read line; do
-            if [[ $line =~ worker.*([0-9]+) ]] || [[ $line =~ candidate.*([0-9]+) ]]; then
-                worker_id="${BASH_REMATCH[1]}"
-                timestamp=$(echo "$line" | grep -oP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' || date +"%Y-%m-%d %H:%M:%S")
-                response=$(echo "$line" | sed 's/.*response[: ]*//i' | cut -c1-80)
-                echo "WORKER|$timestamp|Worker-$worker_id|$response"
+    fi
+
+    # Extract verification results from verification worker
+    if [ -f "$LOG_DIR/verification-worker.log" ]; then
+        tail -500 "$LOG_DIR/verification-worker.log" | grep "Verification complete" | tail -10 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+
+            # Extract faithfulness score
+            if [[ $line =~ faithfulness=([0-9.]+) ]]; then
+                faith="${BASH_REMATCH[1]}"
+                echo "RAGAS|$timestamp|Candidate|Faithfulness|$faith"
+            fi
+
+            # Extract relevancy score
+            if [[ $line =~ relevancy=([0-9.]+) ]]; then
+                rel="${BASH_REMATCH[1]}"
+                echo "RAGAS|$timestamp|Candidate|Relevance|$rel"
+            fi
+
+            # Extract confidence level
+            if [[ $line =~ confidence=([a-z]+) ]]; then
+                conf="${BASH_REMATCH[1]}"
+                echo "RAGAS|$timestamp|Candidate|Confidence|$conf"
             fi
         done
-        
-        # Extract RAGAS scores with worker association
-        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep -iE "ragas|score|faithfulness|relevance|correctness|reward" | tail -20 | while read line; do
-            timestamp=$(echo "$line" | grep -oP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' || date +"%Y-%m-%d %H:%M:%S")
-            
-            # Extract worker ID if present
-            worker_id="N/A"
-            if [[ $line =~ worker.*([0-9]+) ]] || [[ $line =~ candidate.*([0-9]+) ]]; then
-                worker_id="Worker-${BASH_REMATCH[1]}"
-            fi
-            
-            # Extract metric and score
-            if [[ $line =~ faithfulness.*([0-9.]+) ]]; then
-                echo "RAGAS|$timestamp|$worker_id|Faithfulness|${BASH_REMATCH[1]}"
-            elif [[ $line =~ relevance.*([0-9.]+) ]]; then
-                echo "RAGAS|$timestamp|$worker_id|Relevance|${BASH_REMATCH[1]}"
-            elif [[ $line =~ correctness.*([0-9.]+) ]]; then
-                echo "RAGAS|$timestamp|$worker_id|Correctness|${BASH_REMATCH[1]}"
-            elif [[ $line =~ reward.*([0-9.]+) ]]; then
-                echo "REWARD|$timestamp|$worker_id|Total Reward|${BASH_REMATCH[1]}"
-            elif [[ $line =~ score.*([0-9.]+) ]]; then
-                echo "RAGAS|$timestamp|$worker_id|Overall|${BASH_REMATCH[1]}"
+
+        # Extract verification.completed events
+        tail -500 "$LOG_DIR/verification-worker.log" | grep "Published event: verification.completed" | tail -5 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+            if [[ $line =~ id=([a-f0-9-]+) ]]; then
+                event_id="${BASH_REMATCH[1]}"
+                echo "REWARD|$timestamp|Verified-${event_id:0:8}|Verification|Completed"
             fi
         done
-        
-        # Extract DPO pair generation
-        tail -500 "$LOG_DIR/qa-orchestrator.log" | grep -iE "dpo|preference|chosen|rejected" | tail -15 | while read line; do
-            timestamp=$(echo "$line" | grep -oP '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' || date +"%Y-%m-%d %H:%M:%S")
-            
-            if [[ $line =~ chosen.*worker.*([0-9]+) ]] || [[ $line =~ chosen.*candidate.*([0-9]+) ]]; then
-                worker_id="Worker-${BASH_REMATCH[1]}"
-                response=$(echo "$line" | sed 's/.*chosen[: ]*//i' | cut -c1-60)
-                echo "DPO_CHOSEN|$timestamp|$worker_id|$response"
-            elif [[ $line =~ rejected.*worker.*([0-9]+) ]] || [[ $line =~ rejected.*candidate.*([0-9]+) ]]; then
-                worker_id="Worker-${BASH_REMATCH[1]}"
-                response=$(echo "$line" | sed 's/.*rejected[: ]*//i' | cut -c1-60)
-                echo "DPO_REJECTED|$timestamp|$worker_id|$response"
-            elif [[ $line =~ preference.*pair.*created ]]; then
-                echo "DPO_PAIR|$timestamp|Pair Created|$(echo $line | cut -c1-60)"
+    fi
+
+    # Extract DPO pair generation from dataset worker
+    if [ -f "$LOG_DIR/dataset-worker.log" ]; then
+        # Look for DPO pair creation
+        tail -500 "$LOG_DIR/dataset-worker.log" | grep -iE "dpo|preference|chosen|rejected|pair" | tail -15 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+
+            if [[ $line =~ chosen ]] || [[ $line =~ best ]]; then
+                echo "DPO_CHOSEN|$timestamp|Best Response|$(echo $line | cut -c1-80)"
+            elif [[ $line =~ rejected ]] || [[ $line =~ worst ]]; then
+                echo "DPO_REJECTED|$timestamp|Worst Response|$(echo $line | cut -c1-80)"
+            elif [[ $line =~ pair.*created ]] || [[ $line =~ saved.*dpo ]]; then
+                echo "DPO_PAIR|$timestamp|Pair Created|$(echo $line | cut -c1-80)"
             fi
+        done
+
+        # Look for file saves
+        tail -500 "$LOG_DIR/dataset-worker.log" | grep -iE "saved|written|created.*file" | tail -5 | while read line; do
+            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
+            echo "DPO_PAIR|$timestamp|File Saved|$(echo $line | cut -c1-80)"
         done
     fi
 }
@@ -320,7 +332,11 @@ display_dashboard() {
     echo ""
 
     # Footer with instructions
-    printf "${BOLD}${YELLOW}Press ENTER to refresh | Press Ctrl+C to exit${NC}\n"
+    if [ "$AUTO_REFRESH" == "--auto" ] || [ "$AUTO_REFRESH" == "-a" ]; then
+        printf "${BOLD}${GREEN}⟳ Auto-refreshing every 5 seconds | Press Ctrl+C to exit${NC}\n"
+    else
+        printf "${BOLD}${YELLOW}Press ENTER to refresh | Ctrl+C to exit | Run with --auto for auto-refresh${NC}\n"
+    fi
     echo ""
 }
 
@@ -330,12 +346,29 @@ main() {
     echo "Initializing..."
     sleep 1
 
-    while true; do
-        display_dashboard
-        read -r
-    done
+    # Check if auto-refresh is requested
+    AUTO_REFRESH=${1:-""}
+
+    if [ "$AUTO_REFRESH" == "--auto" ] || [ "$AUTO_REFRESH" == "-a" ]; then
+        echo "Auto-refresh mode enabled (5 second intervals)"
+        echo "Press Ctrl+C to exit"
+        sleep 2
+
+        while true; do
+            display_dashboard
+            sleep 5
+        done
+    else
+        echo "Manual refresh mode (press ENTER to refresh)"
+        sleep 1
+
+        while true; do
+            display_dashboard
+            read -r
+        done
+    fi
 }
 
 # Run the dashboard
-main
+main "$@"
 
