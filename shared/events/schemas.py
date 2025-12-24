@@ -19,7 +19,8 @@ class BaseEvent:
     """Base class for all events"""
     event_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    
+    correlation_id: Optional[str] = None  # For request tracing across services
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert event to dictionary"""
         return asdict(self)

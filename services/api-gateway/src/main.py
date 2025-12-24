@@ -168,9 +168,18 @@ async def ask_question_multi_candidate(request: Request):
     Ask a question and generate multiple candidate answers for DPO training.
 
     Proxies to QA Orchestrator service.
+    Returns correlation_id for request tracing.
     """
     try:
+        import uuid
+
         body = await request.json()
+
+        # Generate correlation ID for request tracing
+        correlation_id = str(uuid.uuid4())
+        body['correlation_id'] = correlation_id
+
+        logger.info(f"[correlation_id={correlation_id}] Multi-candidate request: {body.get('question', 'N/A')[:50]}...")
 
         async with httpx.AsyncClient(timeout=180.0) as client:  # 3 minutes for multiple candidates
             response = await client.post(
@@ -178,7 +187,14 @@ async def ask_question_multi_candidate(request: Request):
                 json=body
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # Add correlation_id to response for UI
+            result['correlation_id'] = correlation_id
+
+            logger.info(f"[correlation_id={correlation_id}] Multi-candidate response sent (batch_id={result.get('batch_id', 'N/A')})")
+
+            return result
 
     except httpx.HTTPStatusError as e:
         logger.error(f"QA Orchestrator multi-candidate error: {e}")

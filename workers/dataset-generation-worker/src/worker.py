@@ -98,28 +98,33 @@ class DatasetGenerationWorker:
     def process_answer_generated(self, event: AnswerGeneratedEvent) -> None:
         """Process answer.generated event."""
         try:
-            logger.debug(f"Received answer.generated: {event.event_id}")
+            correlation_id = getattr(event, 'correlation_id', 'N/A')
+            batch_id = getattr(event, 'batch_id', 'N/A')
+
+            logger.debug(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Received answer.generated: {event.event_id}")
             self.stats["answer_events"] += 1
-            
+
             complete_entry = self.aggregator.add_answer_generated(event)
-            
+
             if complete_entry:
                 self._write_complete_entry(complete_entry)
-                
+
         except Exception as e:
             logger.error(f"Error processing answer.generated: {e}", exc_info=True)
-    
+
     def process_verification_completed(self, event: VerificationCompletedEvent) -> None:
         """Process verification.completed event."""
         try:
-            logger.debug(f"Received verification.completed: {event.event_id}")
+            correlation_id = getattr(event, 'correlation_id', 'N/A')
+
+            logger.debug(f"[correlation_id={correlation_id}] Received verification.completed: {event.event_id}")
             self.stats["verification_events"] += 1
-            
+
             complete_entry = self.aggregator.add_verification_completed(event)
-            
+
             if complete_entry:
                 self._write_complete_entry(complete_entry)
-                
+
         except Exception as e:
             logger.error(f"Error processing verification.completed: {e}", exc_info=True)
     

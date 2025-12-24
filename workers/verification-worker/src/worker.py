@@ -84,28 +84,32 @@ class VerificationWorker:
             event: AnswerGeneratedEvent to process
         """
         try:
-            logger.info(f"Processing answer.generated event: {event.event_id}")
-            
+            correlation_id = getattr(event, 'correlation_id', 'N/A')
+            batch_id = getattr(event, 'batch_id', 'N/A')
+
+            logger.info(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Processing answer.generated event: {event.event_id}")
+
             # Extract contexts (list of strings)
             contexts = [ctx.get("content", "") for ctx in event.contexts if isinstance(ctx, dict)]
-            
+
             if not contexts:
-                logger.warning(f"No contexts found in event {event.event_id}")
+                logger.warning(f"[correlation_id={correlation_id}] No contexts found in event {event.event_id}")
                 contexts = [""]
-            
+
             # Verify answer quality
             verification_result = self.verifier.verify(
                 question=event.question,
                 answer=event.answer,
                 contexts=contexts
             )
-            
+
             logger.info(
+                f"[correlation_id={correlation_id}] [batch_id={batch_id}] "
                 f"Verification complete: faithfulness={verification_result['faithfulness']:.3f}, "
                 f"relevancy={verification_result['relevancy']:.3f}, "
                 f"confidence={verification_result['confidence']}"
             )
-            
+
             # Create verification.completed event
             verification_event = VerificationCompletedEvent(
                 request_id=event.event_id,
@@ -114,17 +118,18 @@ class VerificationWorker:
                 faithfulness_score=verification_result["faithfulness"],
                 relevancy_score=verification_result["relevancy"],
                 overall_score=verification_result["overall_score"],
-                verification_model=verification_result["mode"]
+                verification_model=verification_result["mode"],
+                correlation_id=correlation_id
             )
-            
+
             # Publish verification.completed event
             self.publisher.publish(
                 event=verification_event,
                 routing_key="verification.completed"
             )
-            
-            logger.info(f"Published verification.completed event: {verification_event.event_id}")
-            
+
+            logger.info(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Published verification.completed event: {verification_event.event_id}")
+
         except Exception as e:
             logger.error(f"Error processing answer.generated event: {e}", exc_info=True)
     

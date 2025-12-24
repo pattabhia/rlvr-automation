@@ -143,6 +143,7 @@ class MultiCandidateRequest(BaseModel):
     num_candidates: int | None = Field(None, description="Number of candidate answers to generate (uses env default if not specified)", ge=2, le=5)
     top_k: int | None = Field(None, description="Number of documents to retrieve (optional)", ge=1, le=20)
     publish_events: bool = Field(True, description="Whether to publish answer.generated events for each candidate")
+    correlation_id: str | None = Field(None, description="Correlation ID for request tracing")
 
 
 class QuestionResponse(BaseModel):
@@ -160,6 +161,8 @@ class MultiCandidateResponse(BaseModel):
     candidates: list[Dict[str, Any]]
     num_candidates: int
     events_published: int
+    batch_id: str | None = None
+    correlation_id: str | None = None
 
 
 # API Endpoints
@@ -263,7 +266,9 @@ async def ask_question_multi_candidate(request: MultiCandidateRequest):
         # Use default num_candidates from environment if not specified
         num_cands = request.num_candidates if request.num_candidates is not None else int(os.getenv("NUM_CANDIDATES", "3"))
 
-        logger.info(f"Received multi-candidate request: {request.question} (num_candidates={num_cands})")
+        correlation_id = request.correlation_id
+
+        logger.info(f"[correlation_id={correlation_id}] Received multi-candidate request: {request.question} (num_candidates={num_cands})")
 
         # Update top_k if provided
         if request.top_k is not None:
@@ -277,10 +282,13 @@ async def ask_question_multi_candidate(request: MultiCandidateRequest):
 
         # Publish events for each candidate if enabled
         events_published = 0
+        batch_id = None
         if request.publish_events and event_publisher:
             # Generate a unique batch ID for this multi-candidate request
             import uuid
             batch_id = str(uuid.uuid4())
+
+            logger.info(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Publishing {num_cands} answer.generated events")
 
             for i, candidate in enumerate(candidates):
                 try:
@@ -293,6 +301,7 @@ async def ask_question_multi_candidate(request: MultiCandidateRequest):
                         candidate_index=i,
                         total_candidates=num_cands,
                         batch_id=batch_id,
+                        correlation_id=correlation_id,
                         sources=[
                             {
                                 "content": ctx["content"],
@@ -311,18 +320,23 @@ async def ask_question_multi_candidate(request: MultiCandidateRequest):
                     # Add event_id to candidate metadata
                     candidate["metadata"]["event_id"] = event.event_id
                     candidate["metadata"]["batch_id"] = batch_id
+                    candidate["metadata"]["correlation_id"] = correlation_id
                     events_published += 1
 
-                    logger.info(f"Published answer.generated event for candidate {i+1}/{num_cands} (batch={batch_id[:8]}): {event.event_id}")
+                    logger.info(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Published answer.generated event for candidate {i+1}/{num_cands}: {event.event_id}")
                 except Exception as e:
-                    logger.error(f"Failed to publish event for candidate {i+1}: {e}")
+                    logger.error(f"[correlation_id={correlation_id}] Failed to publish event for candidate {i+1}: {e}")
                     # Don't fail the request if event publishing fails
+
+        logger.info(f"[correlation_id={correlation_id}] [batch_id={batch_id}] Multi-candidate request complete: {events_published} events published")
 
         return MultiCandidateResponse(
             question=request.question,
             candidates=candidates,
             num_candidates=len(candidates),
-            events_published=events_published
+            events_published=events_published,
+            batch_id=batch_id,
+            correlation_id=correlation_id
         )
 
     except Exception as e:
