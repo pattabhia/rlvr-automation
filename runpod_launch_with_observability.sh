@@ -241,6 +241,7 @@ cd /workspace/observability
 sleep 5
 
 echo -e "${GREEN}✅ Step 10: Installing Python dependencies${NC}"
+cd /workspace/rlvr-automation
 pip install -r requirements.txt
 
 # Install OpenTelemetry packages
@@ -257,7 +258,7 @@ export OLLAMA_BASE_URL="http://localhost:11434"
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 
 # Start services
-cd services/api-gateway
+cd /workspace/rlvr-automation/services/api-gateway
 uvicorn src.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/api-gateway.log 2>&1 &
 
 cd ../qa-orchestrator
@@ -273,7 +274,7 @@ cd ../ground-truth
 uvicorn src.main:app --host 0.0.0.0 --port 8007 > /workspace/logs/ground-truth.log 2>&1 &
 
 echo -e "${GREEN}✅ Step 12: Starting workers${NC}"
-cd ../../workers/verification-worker
+cd /workspace/rlvr-automation/workers/verification-worker
 python src/worker.py > /workspace/logs/verification-worker.log 2>&1 &
 
 cd ../reward-computation-worker
