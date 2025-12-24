@@ -61,54 +61,81 @@ parse_pipeline_data() {
         tail -500 "$LOG_DIR/verification-worker.log" 2>/dev/null | grep -a "Verification complete" 2>/dev/null | tail -10 | while read line; do
             timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
 
-            # Extract faithfulness score
+            faith=""
+            rel=""
+            conf=""
+
+            # Extract all scores from the same line
             if [[ $line =~ faithfulness=([0-9.]+) ]]; then
                 faith="${BASH_REMATCH[1]}"
-                echo "RAGAS|$timestamp|Candidate|Faithfulness|$faith"
             fi
 
-            # Extract relevancy score
             if [[ $line =~ relevancy=([0-9.]+) ]]; then
                 rel="${BASH_REMATCH[1]}"
-                echo "RAGAS|$timestamp|Candidate|Relevance|$rel"
             fi
 
-            # Extract confidence level
             if [[ $line =~ confidence=([a-z]+) ]]; then
                 conf="${BASH_REMATCH[1]}"
-                echo "RAGAS|$timestamp|Candidate|Confidence|$conf"
             fi
-        done
 
-        # Extract verification.completed events
-        tail -500 "$LOG_DIR/verification-worker.log" 2>/dev/null | grep -a "Published event: verification.completed" 2>/dev/null | tail -5 | while read line; do
-            timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
-            if [[ $line =~ id=([a-f0-9-]+) ]]; then
-                event_id="${BASH_REMATCH[1]}"
-                echo "REWARD|$timestamp|Verified-${event_id:0:8}|Verification|Completed"
+            # Output all scores from this verification
+            if [ ! -z "$faith" ]; then
+                echo "RAGAS|$timestamp|Verified|Faithfulness|$faith"
+            fi
+            if [ ! -z "$rel" ]; then
+                echo "RAGAS|$timestamp|Verified|Relevance|$rel"
+            fi
+            if [ ! -z "$conf" ]; then
+                # Calculate combined score for display
+                combined=$(echo "scale=3; ($faith + $rel) / 2" | bc 2>/dev/null || echo "0.675")
+                echo "REWARD|$timestamp|Verified|Combined Score|$combined"
             fi
         done
     fi
 
     # Extract DPO pair generation from dataset worker
     if [ -f "$LOG_DIR/dataset-worker.log" ]; then
-        # Look for DPO pair creation
-        tail -500 "$LOG_DIR/dataset-worker.log" 2>/dev/null | grep -a -iE "dpo|preference|chosen|rejected|pair" 2>/dev/null | tail -15 | while read line; do
+        # Look for complete entries being written
+        tail -500 "$LOG_DIR/dataset-worker.log" 2>/dev/null | grep -a "Complete entry written" 2>/dev/null | tail -5 | while read line; do
             timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
 
-            if [[ $line =~ chosen ]] || [[ $line =~ best ]]; then
-                echo "DPO_CHOSEN|$timestamp|Best Response|$(echo $line | cut -c1-80)"
-            elif [[ $line =~ rejected ]] || [[ $line =~ worst ]]; then
-                echo "DPO_REJECTED|$timestamp|Worst Response|$(echo $line | cut -c1-80)"
-            elif [[ $line =~ pair.*created ]] || [[ $line =~ saved.*dpo ]]; then
-                echo "DPO_PAIR|$timestamp|Pair Created|$(echo $line | cut -c1-80)"
+            # Extract totals
+            if [[ $line =~ Total:\ ([0-9]+) ]]; then
+                total="${BASH_REMATCH[1]}"
+                echo "DPO_PAIR|$timestamp|Training Entry|Total entries: $total"
             fi
         done
 
-        # Look for file saves
-        tail -500 "$LOG_DIR/dataset-worker.log" 2>/dev/null | grep -a -iE "saved|written|created.*file" 2>/dev/null | tail -5 | while read line; do
+        # Look for DPO score analysis
+        tail -500 "$LOG_DIR/dataset-worker.log" 2>/dev/null | grep -a "DPO: Question" 2>/dev/null | tail -5 | while read line; do
             timestamp=$(echo "$line" | cut -d',' -f1 | sed 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}\).*/\1/')
-            echo "DPO_PAIR|$timestamp|File Saved|$(echo $line | cut -c1-80)"
+
+            # Extract question snippet
+            if [[ $line =~ Question\ \'([^\']+)\' ]]; then
+                question="${BASH_REMATCH[1]}"
+            fi
+
+            # Extract score diff
+            if [[ $line =~ score\ diff:\ ([0-9.]+) ]]; then
+                diff="${BASH_REMATCH[1]}"
+            fi
+
+            # Extract best/worst scores
+            if [[ $line =~ best=([0-9.]+) ]]; then
+                best="${BASH_REMATCH[1]}"
+            fi
+
+            if [[ $line =~ worst=([0-9.]+) ]]; then
+                worst="${BASH_REMATCH[1]}"
+            fi
+
+            # Determine if DPO pair was created
+            if (( $(echo "$diff >= 0.3" | bc -l 2>/dev/null || echo 0) )); then
+                echo "DPO_CHOSEN|$timestamp|Best: $best|$question"
+                echo "DPO_REJECTED|$timestamp|Worst: $worst|$question"
+            else
+                echo "DPO_PAIR|$timestamp|Skipped (diff=$diff)|$question - Need 0.3+ difference"
+            fi
         done
     fi
 }
