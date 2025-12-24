@@ -372,7 +372,7 @@ sleep 3
 # Start Streamlit UI
 echo "🎨 Starting Streamlit UI..."
 cd /workspace/rlvr-automation/ui/streamlit
-PYTHONPATH=/workspace/rlvr-automation/ui/streamlit:/workspace/rlvr-automation nohup streamlit run src/app_simple.py > /workspace/logs/streamlit.log 2>&1 &
+PYTHONPATH=/workspace/rlvr-automation/ui/streamlit:/workspace/rlvr-automation nohup python3 -m streamlit run src/app_simple.py --server.port 8501 --server.headless true --server.address 0.0.0.0 > /workspace/logs/streamlit.log 2>&1 &
 echo "   Streamlit UI PID: $!"
 
 echo ""
