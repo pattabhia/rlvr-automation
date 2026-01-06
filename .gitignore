@@ -44,7 +44,7 @@ toml
 # Streamlit (allow config.toml but ignore cache)
 .streamlit/secrets.toml
 .streamlit/credentials.toml
-docs/*
+docs/*.md
 training_data/*
 rlvr-automation.code-workspace
 
